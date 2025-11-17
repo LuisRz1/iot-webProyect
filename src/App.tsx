@@ -34,8 +34,8 @@ function App() {
       <div className="relative z-10 min-h-screen p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-12">
-            <h1 className="text-5xl font-bold text-white mb-2">Smart Home</h1>
-            <p className="text-xl text-white/70">Control your home with ease</p>
+            <h1 className="text-5xl font-bold text-white mb-2">Smarty</h1>
+            <p className="text-xl text-white/70">Control del banco</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -58,7 +58,7 @@ function App() {
                     />
                   </button>
                 </div>
-                <h3 className="text-white text-lg font-semibold mb-1">Living Room Light</h3>
+                <h3 className="text-white text-lg font-semibold mb-1">Luz de la habitación</h3>
                 <p className="text-white/60 text-sm">{devices.livingRoomLight ? 'On' : 'Off'}</p>
               </div>
 
@@ -80,7 +80,7 @@ function App() {
                     />
                   </button>
                 </div>
-                <h3 className="text-white text-lg font-semibold mb-1">Kitchen Light</h3>
+                <h3 className="text-white text-lg font-semibold mb-1">Luz de la habitación</h3>
                 <p className="text-white/60 text-sm">{devices.kitchenLight ? 'On' : 'Off'}</p>
               </div>
 
@@ -102,7 +102,7 @@ function App() {
                     />
                   </button>
                 </div>
-                <h3 className="text-white text-lg font-semibold mb-1">Bedroom Light</h3>
+                <h3 className="text-white text-lg font-semibold mb-1">Luz de la habitación</h3>
                 <p className="text-white/60 text-sm">{devices.bedroomLight ? 'On' : 'Off'}</p>
               </div>
 
@@ -124,7 +124,7 @@ function App() {
                     />
                   </button>
                 </div>
-                <h3 className="text-white text-lg font-semibold mb-1">Alarm Sound</h3>
+                <h3 className="text-white text-lg font-semibold mb-1">Sonido</h3>
                 <p className="text-white/60 text-sm">{devices.alarmSound ? 'On' : 'Off'}</p>
               </div>
 
@@ -146,7 +146,7 @@ function App() {
                     />
                   </button>
                 </div>
-                <h3 className="text-white text-lg font-semibold mb-1">Security Camera</h3>
+                <h3 className="text-white text-lg font-semibold mb-1">Cámara de seguridad</h3>
                 <p className="text-white/60 text-sm">{devices.camera ? 'Recording' : 'Off'}</p>
               </div>
 
@@ -168,7 +168,7 @@ function App() {
                     />
                   </button>
                 </div>
-                <h3 className="text-white text-lg font-semibold mb-1">Garage Door</h3>
+                <h3 className="text-white text-lg font-semibold mb-1">Puerta principal</h3>
                 <p className="text-white/60 text-sm">{devices.garage ? 'Open' : 'Closed'}</p>
               </div>
             </div>
@@ -180,7 +180,7 @@ function App() {
                     <div className="w-12 h-12 bg-orange-500/30 rounded-lg flex items-center justify-center">
                       <Thermometer className="text-orange-300" size={24} />
                     </div>
-                    <h3 className="text-white text-lg font-semibold">Temperature</h3>
+                    <h3 className="text-white text-lg font-semibold">Temperatura</h3>
                   </div>
                 </div>
                 <div className="text-4xl font-bold text-white mb-6">{devices.livingRoomTemp}°C</div>
@@ -206,7 +206,7 @@ function App() {
                   <div className="w-12 h-12 bg-indigo-500/30 rounded-lg flex items-center justify-center">
                     <Lock className="text-indigo-300" size={24} />
                   </div>
-                  <h3 className="text-white text-lg font-semibold">Security</h3>
+                  <h3 className="text-white text-lg font-semibold">Alarma</h3>
                 </div>
                 <button
                   onClick={() => toggleDevice('alarmArmed')}
@@ -221,26 +221,26 @@ function App() {
               </div>
 
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                <h3 className="text-white text-lg font-semibold mb-4">Energy Stats</h3>
+                <h3 className="text-white text-lg font-semibold mb-4">Estado de la energía</h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Zap size={18} className="text-yellow-400" />
-                      <span className="text-white/70">Power Usage</span>
+                      <span className="text-white/70">Uso de la energía</span>
                     </div>
                     <span className="text-white font-semibold">2.4 kW</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Sun size={18} className="text-blue-400" />
-                      <span className="text-white/70">Solar Panel</span>
+                      <span className="text-white/70">Panel solar</span>
                     </div>
                     <span className="text-white font-semibold">1.8 kW</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Wind size={18} className="text-green-400" />
-                      <span className="text-white/70">Wind Turbine</span>
+                      <span className="text-white/70">Turbina</span>
                     </div>
                     <span className="text-white font-semibold">0.6 kW</span>
                   </div>
