@@ -15,7 +15,9 @@ import {
   Plus,
   Edit,
   Trash2,
-  Calendar
+  Calendar,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -67,6 +69,12 @@ function App() {
   const [modalEditar, setModalEditar] = useState(null);     // contiene uid
   const [modalEliminar, setModalEliminar] = useState(null); // contiene uid
   const [modalHistorialAsistencias, setModalHistorialAsistencias] = useState(null); // contiene objeto empleado (activo o eliminado)
+
+  // Modal para asistencias por día (vista calendario)
+  const [selectedDateAttendance, setSelectedDateAttendance] = useState(null);
+
+  // Navegación de mes en la vista calendario
+  const [currentMonth, setCurrentMonth] = useState(() => new Date());
 
   // Estados para formularios de empleado
   const [formNombre, setFormNombre] = useState('');
@@ -351,7 +359,7 @@ function App() {
     setBuzzer(newState);
   };
 
-  // Registrar una asistencia (fecha + hora) para un empleado activo
+  // Registrar una asistencia (manual desde el panel, además de la que manda Arduino)
   const registrarAsistencia = async (uid) => {
     const empleado = empleados.find(e => e.uid === uid);
     if (!empleado) return;
@@ -448,6 +456,42 @@ function App() {
     );
   };
 
+  // Construir mapa global de asistencias por día (activos + eliminados)
+  const buildMapaAsistencias = () => {
+    const mapa = {};
+    const todos = [...empleados, ...empleadosEliminados];
+
+    todos.forEach(emp => {
+      const porDia = emp.asistencia?.por_dia || {};
+      const esEliminado = empleadosEliminados.some(e => e.uid === emp.uid);
+
+      Object.entries(porDia).forEach(([fecha, datos]) => {
+        const cantidad = datos.cantidad || 0;
+        const horas = datos.horas || [];
+
+        if (!mapa[fecha]) {
+          mapa[fecha] = {
+            total: 0,
+            registros: []
+          };
+        }
+
+        mapa[fecha].total += cantidad;
+        mapa[fecha].registros.push({
+          uid: emp.uid,
+          nombre: emp.nombre,
+          cantidad,
+          horas,
+          eliminado: esEliminado
+        });
+      });
+    });
+
+    return mapa;
+  };
+
+  const mapaAsistencias = buildMapaAsistencias();
+
   // PANTALLA LOGIN
   if (!isAuthenticated) {
     return (
@@ -522,6 +566,38 @@ function App() {
     );
   }
 
+  // Datos para calendario
+  const monthNames = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ];
+  const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startingWeekday = firstDay.getDay(); // 0=Domingo
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const calendarCells = [];
+  for (let i = 0; i < startingWeekday; i++) {
+    calendarCells.push(null);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    calendarCells.push(d);
+  }
+
+  const cambiarMes = (delta) => {
+    const nuevaFecha = new Date(year, month + delta, 1);
+    setCurrentMonth(nuevaFecha);
+  };
+
+  const formatFechaKey = (y, m, d) => {
+    const mm = String(m + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    return `${y}-${mm}-${dd}`;
+  };
+
   // DASHBOARD
   return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -549,6 +625,7 @@ function App() {
               { id: 'sensores', label: '️ Sensores' },
               { id: 'empleados', label: ' Empleados' },
               { id: 'eliminados', label: '️ Eliminados' },
+              { id: 'asistencias', label: 'Asistencias' },
               { id: 'historial', label: ' Historial' }
             ].map(tab => (
                 <button
@@ -1007,6 +1084,160 @@ function App() {
               </div>
           )}
 
+          {/* ASISTENCIAS (VISTA GENERAL TIPO CALENDARIO) */}
+          {activeTab === 'asistencias' && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-white text-2xl font-bold flex items-center gap-2">
+                      <Calendar size={24} />
+                      Asistencias por calendario
+                    </h2>
+                    <p className="text-white/60 text-sm">
+                      Vista general de todos los registros de asistencia (activos y eliminados)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg border border-white/20">
+                    <button
+                        onClick={() => cambiarMes(-1)}
+                        className="p-1 rounded-full hover:bg-white/20 text-white"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <span className="text-white font-semibold">
+                  {monthNames[month]} {year}
+                </span>
+                    <button
+                        onClick={() => cambiarMes(1)}
+                        className="p-1 rounded-full hover:bg-white/20 text-white"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Leyenda */}
+                <div className="mb-4 flex items-center gap-4 text-xs text-white/60">
+                  <div className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded-full bg-emerald-400/70 border border-emerald-300/80" />
+                    <span>Día con asistencias</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded-full bg-emerald-400/10 border border-emerald-300/30" />
+                    <span>Suma total del día</span>
+                  </div>
+                </div>
+
+                {/* Cabecera de días de la semana */}
+                <div className="grid grid-cols-7 text-center text-white/60 text-xs mb-2">
+                  {weekDays.map((d) => (
+                      <div key={d} className="py-1">
+                        {d}
+                      </div>
+                  ))}
+                </div>
+
+                {/* Calendario */}
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  <div className="grid grid-cols-7 gap-1">
+                    {calendarCells.map((day, idx) => {
+                      if (day === null) {
+                        return <div key={idx} className="h-16" />;
+                      }
+
+                      const fechaKey = formatFechaKey(year, month, day);
+                      const infoDia = mapaAsistencias[fechaKey];
+
+                      const hasAsistencias = !!infoDia;
+
+                      return (
+                          <button
+                              key={idx}
+                              disabled={!hasAsistencias}
+                              onClick={() => {
+                                if (hasAsistencias) {
+                                  setSelectedDateAttendance({
+                                    fecha: fechaKey,
+                                    ...infoDia
+                                  });
+                                }
+                              }}
+                              className={`h-16 rounded-xl border flex flex-col items-center justify-between p-1 text-xs transition-all ${
+                                  hasAsistencias
+                                      ? 'border-emerald-400/70 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer'
+                                      : 'border-white/10 bg-white/0 text-white/40 cursor-default'
+                              }`}
+                          >
+                            <div className="w-full flex justify-between items-center">
+                        <span className="text-white text-sm font-semibold">
+                          {day}
+                        </span>
+                            </div>
+                            {hasAsistencias && (
+                                <div className="w-full flex flex-col items-center">
+                          <span className="text-emerald-300 text-[10px] font-semibold">
+                            {infoDia.total} {infoDia.total === 1 ? 'pase' : 'pases'}
+                          </span>
+                                  <span className="mt-1 inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-100 border border-emerald-400/40">
+                            <Users size={10} />
+                                    {infoDia.registros.length} persona
+                                    {infoDia.registros.length !== 1 && 's'}
+                          </span>
+                                </div>
+                            )}
+                          </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Resumen debajo (opcional, por si no usan el modal) */}
+                <div className="mt-6">
+                  <h3 className="text-white text-lg font-semibold mb-3 flex items-center gap-2">
+                    <History size={18} />
+                    Días con asistencias en este mes
+                  </h3>
+                  {Object.keys(mapaAsistencias).filter((fecha) => {
+                    const [y, m, d] = fecha.split('-').map(Number);
+                    return y === year && m - 1 === month;
+                  }).length === 0 ? (
+                      <p className="text-white/50 text-sm">
+                        No hay asistencias registradas en este mes.
+                      </p>
+                  ) : (
+                      <div className="space-y-2">
+                        {Object.entries(mapaAsistencias)
+                            .filter(([fecha]) => {
+                              const [y, m] = fecha.split('-').map(Number);
+                              return y === year && m - 1 === month;
+                            })
+                            .sort((a, b) => a[0].localeCompare(b[0]))
+                            .map(([fecha, datos]) => (
+                                <div
+                                    key={fecha}
+                                    className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 flex items-center justify-between text-sm text-white/80"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Calendar size={16} className="text-blue-300" />
+                                    <span className="font-semibold">{fecha}</span>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-xs">
+                          <span className="text-emerald-300">
+                            {datos.total} {datos.total === 1 ? 'pase' : 'pases'}
+                          </span>
+                                    <span className="text-white/60">
+                            {datos.registros.length} persona
+                                      {datos.registros.length !== 1 && 's'}
+                          </span>
+                                  </div>
+                                </div>
+                            ))}
+                      </div>
+                  )}
+                </div>
+              </div>
+          )}
+
           {/* HISTORIAL GENERAL */}
           {activeTab === 'historial' && (
               <div>
@@ -1445,6 +1676,81 @@ function App() {
                     Ver Historial de Asistencias
                   </button>
                 </div>
+              </div>
+            </div>
+        )}
+
+        {/* MODAL DETALLE DE ASISTENCIAS POR DÍA (vista calendario) */}
+        {selectedDateAttendance && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-gradient-to-br from-slate-800 to-purple-900 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-emerald-400/40 shadow-2xl">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-white text-2xl font-bold flex items-center gap-2">
+                      <Calendar size={22} className="text-emerald-300" />
+                      Asistencias del {selectedDateAttendance.fecha}
+                    </h3>
+                    <p className="text-white/60 text-sm">
+                      Total de pases: {selectedDateAttendance.total}
+                    </p>
+                  </div>
+                  <button
+                      onClick={() => setSelectedDateAttendance(null)}
+                      className="text-white/70 hover:text-white"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                {selectedDateAttendance.registros.length === 0 ? (
+                    <div className="bg-white/5 rounded-lg p-8 border border-white/10 text-center">
+                      <UserCheck className="text-white/30 mx-auto mb-2" size={48} />
+                      <p className="text-white/50 text-sm">
+                        No se encontraron registros para este día.
+                      </p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                      {selectedDateAttendance.registros.map((reg, idx) => (
+                          <div
+                              key={idx}
+                              className="bg-white/5 rounded-lg p-4 border border-white/15"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <p className="text-white font-semibold flex items-center gap-2">
+                                  {reg.nombre}
+                                  {reg.eliminado && (
+                                      <span className="text-[10px] bg-red-500/30 text-red-200 px-2 py-0.5 rounded-full border border-red-500/60">
+                              ELIMINADO
+                            </span>
+                                  )}
+                                </p>
+                                <p className="text-white/50 text-xs font-mono">
+                                  {reg.uid}
+                                </p>
+                              </div>
+                              <span className="text-emerald-300 text-sm font-semibold">
+                        {reg.cantidad}{' '}
+                                {reg.cantidad === 1 ? 'pase' : 'pases'}
+                      </span>
+                            </div>
+                            {reg.horas && reg.horas.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {reg.horas.map((hora, i) => (
+                                      <span
+                                          key={i}
+                                          className="bg-white/10 text-white/80 text-xs px-2 py-1 rounded-full border border-white/20"
+                                      >
+                            {hora}
+                          </span>
+                                  ))}
+                                </div>
+                            )}
+                          </div>
+                      ))}
+                    </div>
+                )}
               </div>
             </div>
         )}
