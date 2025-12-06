@@ -63,6 +63,9 @@ function App() {
   const [activeTab, setActiveTab] = useState('empleados');
   const [loading, setLoading] = useState(true);
 
+  // Logs de zona privada (lo nuevo)
+  const [logsZonaPrivada, setLogsZonaPrivada] = useState({});
+
   // Modales
   const [modalEmpleado, setModalEmpleado] = useState(null); // detalle rápido
   const [modalCrear, setModalCrear] = useState(false);
@@ -206,6 +209,14 @@ function App() {
           setHistorial(histArray);
         } else {
           setHistorial([]);
+        }
+
+        // 🔥 NUEVO: cargar logs de zona privada
+        const logsData = await firebaseGet('logs_zona_privada');
+        if (logsData) {
+          setLogsZonaPrivada(logsData);
+        } else {
+          setLogsZonaPrivada({});
         }
 
         setLoading(false);
@@ -618,7 +629,7 @@ function App() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          <div className="mark:flex mark:gap-2 flex gap-2 mb-6 overflow-x-auto pb-2">
             {[
               { id: 'luces', label: ' Luces' },
               { id: 'puertas', label: ' Puertas' },
@@ -626,6 +637,7 @@ function App() {
               { id: 'empleados', label: ' Empleados' },
               { id: 'eliminados', label: '️ Eliminados' },
               { id: 'asistencias', label: 'Asistencias' },
+              { id: 'logs', label: ' Logs Zona Privada' },   // 🔥 NUEVO TAB
               { id: 'historial', label: ' Historial' }
             ].map(tab => (
                 <button
@@ -1191,7 +1203,7 @@ function App() {
                   </div>
                 </div>
 
-                {/* Resumen debajo (opcional, por si no usan el modal) */}
+                {/* Resumen debajo */}
                 <div className="mt-6">
                   <h3 className="text-white text-lg font-semibold mb-3 flex items-center gap-2">
                     <History size={18} />
@@ -1235,6 +1247,107 @@ function App() {
                       </div>
                   )}
                 </div>
+              </div>
+          )}
+
+          {/* LOGS ZONA PRIVADA (NUEVO) */}
+          {activeTab === 'logs' && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-white text-2xl font-bold flex items-center gap-2">
+                      <Lock size={24} />
+                      Logs Zona Privada
+                    </h2>
+                    <p className="text-white/60 text-sm">
+                      Registros de todos los intentos de ingreso a la zona privada (permitidos y denegados)
+                    </p>
+                  </div>
+                </div>
+
+                {(!logsZonaPrivada || Object.keys(logsZonaPrivada).length === 0) ? (
+                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-12 border border-white/20 text-center">
+                      <History className="text-white/50 mx-auto mb-4" size={64} />
+                      <p className="text-white/70 text-xl">
+                        Aún no hay logs registrados de la zona privada
+                      </p>
+                      <p className="text-white/50 text-sm mt-2">
+                        Cuando el Arduino procese tarjetas en el lector privado, aquí verás quién lo intentó y si tuvo acceso.
+                      </p>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                      {Object.entries(logsZonaPrivada)
+                          .sort(([fechaA], [fechaB]) => fechaB.localeCompare(fechaA)) // fecha más reciente arriba
+                          .map(([fecha, registrosDia]) => (
+                              <div
+                                  key={fecha}
+                                  className="bg-white/5 border border-white/15 rounded-2xl p-5"
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <Calendar size={18} className="text-emerald-300" />
+                                    <span className="text-white font-semibold text-lg">
+                            {fecha}
+                          </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-white/60">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/40">
+                            <Users size={12} />
+                            {
+                              Object.keys(registrosDia).length
+                            }{' '}
+                            intentos
+                          </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  {Object.entries(registrosDia)
+                                      .sort(([hA], [hB]) => hA.localeCompare(hB))
+                                      .map(([horaKey, log]) => (
+                                          <div
+                                              key={horaKey}
+                                              className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-start gap-3"
+                                          >
+                                            <div className="flex flex-col items-center gap-1 mt-1">
+                                              <div className="text-white text-sm font-mono">
+                                                {log.hora || horaKey.replace('-', ':')}
+                                              </div>
+                                              <span
+                                                  className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                                                      log.permitido
+                                                          ? 'bg-emerald-500/15 text-emerald-200 border-emerald-400/60'
+                                                          : 'bg-red-500/15 text-red-200 border-red-400/60'
+                                                  }`}
+                                              >
+                                  {log.permitido ? 'PERMITIDO' : 'DENEGADO'}
+                                </span>
+                                            </div>
+
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-2">
+                                                  <Users className="text-blue-300" size={18} />
+                                                  <p className="text-white font-semibold truncate">
+                                                    {log.nombre || 'Sin nombre'}
+                                                  </p>
+                                                </div>
+                                              </div>
+                                              <p className="text-white/70 text-xs font-mono">
+                                                UID Key: <span className="text-white">{log.uidKey}</span>
+                                              </p>
+                                              <p className="text-white/50 text-xs font-mono">
+                                                UID Hex: <span className="text-white/70">{log.uidHex}</span>
+                                              </p>
+                                            </div>
+                                          </div>
+                                      ))}
+                                </div>
+                              </div>
+                          ))}
+                    </div>
+                )}
               </div>
           )}
 
