@@ -17,9 +17,13 @@ import {
   Trash2,
   Calendar,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // FIREBASE CONFIG
 const FIREBASE_URL = "https://iot-smarty-default-rtdb.firebaseio.com/";
@@ -57,24 +61,24 @@ function App() {
 
   const [buzzer, setBuzzer] = useState(false);
   const [sensores, setSensores] = useState({ temperature: 0, humidity: 0 });
-  const [empleados, setEmpleados] = useState([]);              // activos
-  const [empleadosEliminados, setEmpleadosEliminados] = useState([]); // eliminados (histórico)
-  const [historial, setHistorial] = useState([]);
+  const [empleados, setEmpleados] = useState([] as any[]);              // activos
+  const [empleadosEliminados, setEmpleadosEliminados] = useState([] as any[]); // eliminados (histórico)
+  const [historial, setHistorial] = useState([] as any[]);
   const [activeTab, setActiveTab] = useState('empleados');
   const [loading, setLoading] = useState(true);
 
   // Logs de zona privada (lo nuevo)
-  const [logsZonaPrivada, setLogsZonaPrivada] = useState({});
+  const [logsZonaPrivada, setLogsZonaPrivada] = useState({} as any);
 
   // Modales
-  const [modalEmpleado, setModalEmpleado] = useState(null); // detalle rápido
+  const [modalEmpleado, setModalEmpleado] = useState<any | null>(null); // detalle rápido
   const [modalCrear, setModalCrear] = useState(false);
-  const [modalEditar, setModalEditar] = useState(null);     // contiene uid
-  const [modalEliminar, setModalEliminar] = useState(null); // contiene uid
-  const [modalHistorialAsistencias, setModalHistorialAsistencias] = useState(null); // contiene objeto empleado (activo o eliminado)
+  const [modalEditar, setModalEditar] = useState<string | null>(null);     // contiene uid
+  const [modalEliminar, setModalEliminar] = useState<string | null>(null); // contiene uid
+  const [modalHistorialAsistencias, setModalHistorialAsistencias] = useState<any | null>(null); // contiene objeto empleado (activo o eliminado)
 
   // Modal para asistencias por día (vista calendario)
-  const [selectedDateAttendance, setSelectedDateAttendance] = useState(null);
+  const [selectedDateAttendance, setSelectedDateAttendance] = useState<any | null>(null);
 
   // Navegación de mes en la vista calendario
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
@@ -85,7 +89,7 @@ function App() {
   const [formUid, setFormUid] = useState(''); // UID seleccionado en el modal de creación
 
   // Helpers Firebase
-  const firebasePut = async (path, value) => {
+  const firebasePut = async (path: string, value: any) => {
     try {
       const response = await fetch(`${FIREBASE_URL}${path}.json`, {
         method: 'PUT',
@@ -99,7 +103,7 @@ function App() {
     }
   };
 
-  const firebaseGet = async (path) => {
+  const firebaseGet = async (path: string) => {
     try {
       const response = await fetch(`${FIREBASE_URL}${path}.json`);
       return await response.json();
@@ -109,7 +113,7 @@ function App() {
     }
   };
 
-  const firebaseDelete = async (path) => {
+  const firebaseDelete = async (path: string) => {
     try {
       const response = await fetch(`${FIREBASE_URL}${path}.json`, {
         method: 'DELETE'
@@ -232,7 +236,7 @@ function App() {
   }, [isAuthenticated]);
 
   // Login
-  const handleLogin = (e) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
@@ -293,7 +297,7 @@ function App() {
   };
 
   // Editar empleado (no cambiamos UID, solo nombre y acceso)
-  const editarEmpleado = async (uid) => {
+  const editarEmpleado = async (uid: string) => {
     if (!formNombre.trim()) {
       alert('Por favor ingresa un nombre');
       return;
@@ -321,7 +325,7 @@ function App() {
 
   // Eliminar empleado SIN borrar su historial de asistencias:
   // se mueve a /empleados_eliminados/UID y luego se borra de /empleados/UID
-  const eliminarEmpleado = async (uid) => {
+  const eliminarEmpleado = async (uid: string) => {
     const empleado = empleados.find(e => e.uid === uid);
 
     if (empleado) {
@@ -342,7 +346,7 @@ function App() {
   };
 
   // Toggle luz de zona
-  const toggleZona = async (zonaKey) => {
+  const toggleZona = async (zonaKey: keyof typeof zonas) => {
     const newState = !zonas[zonaKey].state;
     await firebasePut(`zonas/${zonaKey}/led/state`, newState);
     setZonas(prev => ({
@@ -352,7 +356,7 @@ function App() {
   };
 
   // Controlar puertas
-  const controlarPuerta = async (tipo, accion) => {
+  const controlarPuerta = async (tipo: 'principal' | 'privada', accion?: 'open' | 'closed') => {
     if (tipo === 'principal') {
       await firebasePut('puertas/principal/servo1/state', accion);
       await firebasePut('puertas/principal/servo2/state', accion);
@@ -371,7 +375,7 @@ function App() {
   };
 
   // Registrar una asistencia (manual desde el panel, además de la que manda Arduino)
-  const registrarAsistencia = async (uid) => {
+  const registrarAsistencia = async (uid: string) => {
     const empleado = empleados.find(e => e.uid === uid);
     if (!empleado) return;
 
@@ -381,7 +385,7 @@ function App() {
 
     const asistenciaActual = empleado.asistencia || { total: 0, por_dia: {} };
     const porDiaActual = asistenciaActual.por_dia || {};
-    const datosDia = porDiaActual[fecha] || { cantidad: 0, horas: [] };
+    const datosDia = porDiaActual[fecha] || { cantidad: 0, horas: [] as string[] };
 
     const nuevaAsistencia = {
       total: (asistenciaActual.total || 0) + 1,
@@ -416,7 +420,7 @@ function App() {
   };
 
   // Resetear asistencias totales de un empleado (activo o eliminado)
-  const resetearAsistencias = async (empleado) => {
+  const resetearAsistencias = async (empleado: any) => {
     if (!empleado) return;
 
     const isDeleted = !empleados.some(e => e.uid === empleado.uid);
@@ -469,21 +473,21 @@ function App() {
 
   // Construir mapa global de asistencias por día (activos + eliminados)
   const buildMapaAsistencias = () => {
-    const mapa = {};
+    const mapa: any = {};
     const todos = [...empleados, ...empleadosEliminados];
 
     todos.forEach(emp => {
       const porDia = emp.asistencia?.por_dia || {};
       const esEliminado = empleadosEliminados.some(e => e.uid === emp.uid);
 
-      Object.entries(porDia).forEach(([fecha, datos]) => {
+      Object.entries(porDia).forEach(([fecha, datos]: any) => {
         const cantidad = datos.cantidad || 0;
         const horas = datos.horas || [];
 
         if (!mapa[fecha]) {
           mapa[fecha] = {
             total: 0,
-            registros: []
+            registros: [] as any[]
           };
         }
 
@@ -502,6 +506,119 @@ function App() {
   };
 
   const mapaAsistencias = buildMapaAsistencias();
+
+  // =========================
+  // DATOS PARA CALENDARIO
+  // =========================
+  const monthNames = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ];
+  const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startingWeekday = firstDay.getDay(); // 0=Domingo
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const calendarCells: (number | null)[] = [];
+  for (let i = 0; i < startingWeekday; i++) {
+    calendarCells.push(null);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    calendarCells.push(d);
+  }
+
+  const cambiarMes = (delta: number) => {
+    const nuevaFecha = new Date(year, month + delta, 1);
+    setCurrentMonth(nuevaFecha);
+  };
+
+  const formatFechaKey = (y: number, m: number, d: number) => {
+    const mm = String(m + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    return `${y}-${mm}-${dd}`;
+  };
+
+  // =========================
+  // PDF: REPORTE DE ASISTENCIAS
+  // =========================
+// =========================
+// PDF: REPORTE DE ASISTENCIAS
+// =========================
+  const generarReporteAsistenciasPDF = () => {
+    const filas: any[] = [];
+
+    // Recorremos todas las fechas del mapa, solo del mes actual
+    Object.entries(mapaAsistencias)
+        .filter(([fecha]) => {
+          const [y, m] = fecha.split('-').map(Number);
+          return y === year && m - 1 === month;
+        })
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .forEach(([fecha, datos]: any) => {
+          datos.registros.forEach((reg: any) => {
+            const horas: string[] = reg.horas || [];
+
+            if (horas.length === 0) {
+              // Sin horas registradas, fila de resumen
+              filas.push([
+                fecha,
+                reg.nombre,
+                '-',
+                '-',
+                reg.uid,
+                reg.eliminado ? 'Eliminado' : 'Activo'
+              ]);
+            } else {
+              // Una fila por cada marca (hora)
+              horas.forEach((hora, idx) => {
+                // impar/par en la secuencia del día:
+                // idx 0,2,4... = Entrada; 1,3,5... = Salida
+                const tipo = idx % 2 === 0 ? 'Entrada' : 'Salida';
+                filas.push([
+                  fecha,
+                  reg.nombre,
+                  hora,
+                  tipo,
+                  reg.uid,
+                  reg.eliminado ? 'Eliminado' : 'Activo'
+                ]);
+              });
+            }
+          });
+        });
+
+    if (filas.length === 0) {
+      alert('No hay asistencias registradas en este mes para exportar.');
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text('Reporte de asistencias por calendario', 14, 18);
+
+    doc.setFontSize(11);
+    doc.text(`Mes: ${monthNames[month]} ${year}`, 14, 26);
+
+    // 👉 aquí usamos el helper autoTable(doc, config)
+    autoTable(doc, {
+      head: [['Fecha', 'Empleado', 'Hora', 'Tipo', 'UID', 'Estado']],
+      body: filas,
+      startY: 32,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [88, 80, 141] } // puedes quitar esto si da problemas
+    });
+
+    const mesStr = String(month + 1).padStart(2, '0');
+    doc.save(`asistencias_${year}_${mesStr}.pdf`);
+  };
+
+  // ==========================================
+  // PANTALLAS DE LOGIN / LOADING / DASHBOARD
+  // ==========================================
 
   // PANTALLA LOGIN
   if (!isAuthenticated) {
@@ -577,38 +694,6 @@ function App() {
     );
   }
 
-  // Datos para calendario
-  const monthNames = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-  ];
-  const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-
-  const year = currentMonth.getFullYear();
-  const month = currentMonth.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const startingWeekday = firstDay.getDay(); // 0=Domingo
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const calendarCells = [];
-  for (let i = 0; i < startingWeekday; i++) {
-    calendarCells.push(null);
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    calendarCells.push(d);
-  }
-
-  const cambiarMes = (delta) => {
-    const nuevaFecha = new Date(year, month + delta, 1);
-    setCurrentMonth(nuevaFecha);
-  };
-
-  const formatFechaKey = (y, m, d) => {
-    const mm = String(m + 1).padStart(2, '0');
-    const dd = String(d).padStart(2, '0');
-    return `${y}-${mm}-${dd}`;
-  };
-
   // DASHBOARD
   return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -637,7 +722,7 @@ function App() {
               { id: 'empleados', label: ' Empleados' },
               { id: 'eliminados', label: '️ Eliminados' },
               { id: 'asistencias', label: 'Asistencias' },
-              { id: 'logs', label: ' Logs Zona Privada' },   // 🔥 NUEVO TAB
+              { id: 'logs', label: ' Logs Zona Privada' },
               { id: 'historial', label: ' Historial' }
             ].map(tab => (
                 <button
@@ -661,7 +746,7 @@ function App() {
                     <div
                         key={key}
                         className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all cursor-pointer"
-                        onClick={() => toggleZona(key)}
+                        onClick={() => toggleZona(key as keyof typeof zonas)}
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div
@@ -691,24 +776,24 @@ function App() {
                         <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleZona(key);
+                              toggleZona(key as keyof typeof zonas);
                             }}
                             className={`relative w-14 h-8 rounded-full transition-all ${
-                                zonas[key].state ? 'bg-green-500' : 'bg-white/20'
+                                (zonas as any)[key].state ? 'bg-green-500' : 'bg-white/20'
                             }`}
                         >
                           <div
                               className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-transform ${
-                                  zonas[key].state ? 'translate-x-7' : 'translate-x-1'
+                                  (zonas as any)[key].state ? 'translate-x-7' : 'translate-x-1'
                               }`}
                           />
                         </button>
                       </div>
                       <h3 className="text-white text-lg font-semibold mb-1">
-                        {zonas[key].nombre}
+                        {(zonas as any)[key].nombre}
                       </h3>
                       <p className="text-white/60 text-sm">
-                        {zonas[key].state ? '✓ Encendida' : '✗ Apagada'}
+                        {(zonas as any)[key].state ? '✓ Encendida' : '✗ Apagada'}
                       </p>
                     </div>
                 ))}
@@ -1109,48 +1194,50 @@ function App() {
                       Vista general de todos los registros de asistencia (activos y eliminados)
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg border border-white/20">
+
+                  <div className="flex items-center gap-3">
+                    {/* Navegación de mes */}
+                    <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg border border-white/20">
+                      <button
+                          onClick={() => cambiarMes(-1)}
+                          className="p-1 rounded-full hover:bg-white/20 text-white"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                      <span className="text-white font-semibold">
+                    {monthNames[month]} {year}
+                  </span>
+                      <button
+                          onClick={() => cambiarMes(1)}
+                          className="p-1 rounded-full hover:bg-white/20 text-white"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    </div>
+
+                    {/* Botón para descargar PDF */}
                     <button
-                        onClick={() => cambiarMes(-1)}
-                        className="p-1 rounded-full hover:bg-white/20 text-white"
+                        onClick={generarReporteAsistenciasPDF}
+                        className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md shadow-emerald-900/40 transition-all"
                     >
-                      <ChevronLeft size={20} />
-                    </button>
-                    <span className="text-white font-semibold">
-                  {monthNames[month]} {year}
-                </span>
-                    <button
-                        onClick={() => cambiarMes(1)}
-                        className="p-1 rounded-full hover:bg-white/20 text-white"
-                    >
-                      <ChevronRight size={20} />
+                      <Download size={16} />
+                      Descargar PDF
                     </button>
                   </div>
                 </div>
 
-                {/* Leyenda */}
-                <div className="mb-4 flex items-center gap-4 text-xs text-white/60">
-                  <div className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full bg-emerald-400/70 border border-emerald-300/80" />
-                    <span>Día con asistencias</span>
+                {/* Calendario de días */}
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mt-4">
+                  {/* cabecera de días */}
+                  <div className="grid grid-cols-7 text-center text-white/60 text-xs mb-2">
+                    {weekDays.map((d) => (
+                        <div key={d} className="py-1">
+                          {d}
+                        </div>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full bg-emerald-400/10 border border-emerald-300/30" />
-                    <span>Suma total del día</span>
-                  </div>
-                </div>
 
-                {/* Cabecera de días de la semana */}
-                <div className="grid grid-cols-7 text-center text-white/60 text-xs mb-2">
-                  {weekDays.map((d) => (
-                      <div key={d} className="py-1">
-                        {d}
-                      </div>
-                  ))}
-                </div>
-
-                {/* Calendario */}
-                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  {/* celdas del mes */}
                   <div className="grid grid-cols-7 gap-1">
                     {calendarCells.map((day, idx) => {
                       if (day === null) {
@@ -1158,43 +1245,37 @@ function App() {
                       }
 
                       const fechaKey = formatFechaKey(year, month, day);
-                      const infoDia = mapaAsistencias[fechaKey];
+                      const info = (mapaAsistencias as any)[fechaKey];
 
-                      const hasAsistencias = !!infoDia;
+                      const tieneAsistencias = !!info;
+                      const totalPases = info?.total || 0;
 
                       return (
                           <button
                               key={idx}
-                              disabled={!hasAsistencias}
                               onClick={() => {
-                                if (hasAsistencias) {
-                                  setSelectedDateAttendance({
-                                    fecha: fechaKey,
-                                    ...infoDia
-                                  });
-                                }
+                                if (!tieneAsistencias) return;
+                                setSelectedDateAttendance({
+                                  fecha: fechaKey,
+                                  total: totalPases,
+                                  registros: info.registros
+                                });
                               }}
-                              className={`h-16 rounded-xl border flex flex-col items-center justify-between p-1 text-xs transition-all ${
-                                  hasAsistencias
-                                      ? 'border-emerald-400/70 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer'
-                                      : 'border-white/10 bg-white/0 text-white/40 cursor-default'
+                              className={`h-16 rounded-lg border text-left px-2 py-1 text-xs relative transition-all ${
+                                  tieneAsistencias
+                                      ? 'border-emerald-400/60 bg-emerald-500/10 text-white'
+                                      : 'border-white/10 bg-white/5 text-white/60'
                               }`}
                           >
-                            <div className="w-full flex justify-between items-center">
-                        <span className="text-white text-sm font-semibold">
-                          {day}
-                        </span>
-                            </div>
-                            {hasAsistencias && (
-                                <div className="w-full flex flex-col items-center">
-                          <span className="text-emerald-300 text-[10px] font-semibold">
-                            {infoDia.total} {infoDia.total === 1 ? 'pase' : 'pases'}
-                          </span>
-                                  <span className="mt-1 inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-100 border border-emerald-400/40">
-                            <Users size={10} />
-                                    {infoDia.registros.length} persona
-                                    {infoDia.registros.length !== 1 && 's'}
-                          </span>
+                            <div className="font-semibold">{day}</div>
+                            {tieneAsistencias && (
+                                <div className="absolute bottom-1 left-2 right-2 flex items-center justify-between text-[10px]">
+                  <span className="text-emerald-300">
+                    {totalPases} {totalPases === 1 ? 'pase' : 'pases'}
+                  </span>
+                                  <span className="text-white/60">
+                    {info.registros.length} pers.
+                  </span>
                                 </div>
                             )}
                           </button>
@@ -1210,7 +1291,7 @@ function App() {
                     Días con asistencias en este mes
                   </h3>
                   {Object.keys(mapaAsistencias).filter((fecha) => {
-                    const [y, m, d] = fecha.split('-').map(Number);
+                    const [y, m] = fecha.split('-').map(Number);
                     return y === year && m - 1 === month;
                   }).length === 0 ? (
                       <p className="text-white/50 text-sm">
@@ -1224,7 +1305,7 @@ function App() {
                               return y === year && m - 1 === month;
                             })
                             .sort((a, b) => a[0].localeCompare(b[0]))
-                            .map(([fecha, datos]) => (
+                            .map(([fecha, datos]: any) => (
                                 <div
                                     key={fecha}
                                     className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 flex items-center justify-between text-sm text-white/80"
@@ -1250,7 +1331,7 @@ function App() {
               </div>
           )}
 
-          {/* LOGS ZONA PRIVADA (NUEVO) */}
+          {/* LOGS ZONA PRIVADA */}
           {activeTab === 'logs' && (
               <div>
                 <div className="flex items-center justify-between mb-6">
@@ -1278,8 +1359,8 @@ function App() {
                 ) : (
                     <div className="space-y-6">
                       {Object.entries(logsZonaPrivada)
-                          .sort(([fechaA], [fechaB]) => fechaB.localeCompare(fechaA)) // fecha más reciente arriba
-                          .map(([fecha, registrosDia]) => (
+                          .sort(([fechaA], [fechaB]) => (fechaB as string).localeCompare(fechaA as string)) // fecha más reciente arriba
+                          .map(([fecha, registrosDia]: any) => (
                               <div
                                   key={fecha}
                                   className="bg-white/5 border border-white/15 rounded-2xl p-5"
@@ -1294,9 +1375,7 @@ function App() {
                                   <div className="flex items-center gap-2 text-xs text-white/60">
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/40">
                             <Users size={12} />
-                            {
-                              Object.keys(registrosDia).length
-                            }{' '}
+                            {Object.keys(registrosDia).length}{' '}
                             intentos
                           </span>
                                   </div>
@@ -1304,15 +1383,15 @@ function App() {
 
                                 <div className="space-y-2">
                                   {Object.entries(registrosDia)
-                                      .sort(([hA], [hB]) => hA.localeCompare(hB))
-                                      .map(([horaKey, log]) => (
+                                      .sort(([hA], [hB]) => (hA as string).localeCompare(hB as string))
+                                      .map(([horaKey, log]: any) => (
                                           <div
                                               key={horaKey}
                                               className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-start gap-3"
                                           >
                                             <div className="flex flex-col items-center gap-1 mt-1">
                                               <div className="text-white text-sm font-mono">
-                                                {log.hora || horaKey.replace('-', ':')}
+                                                {log.hora || (horaKey as string).replace('-', ':')}
                                               </div>
                                               <span
                                                   className={`text-[10px] px-2 py-0.5 rounded-full border ${
@@ -1387,7 +1466,7 @@ function App() {
           )}
         </div>
 
-        {/* MODAL CREAR EMPLEADO */}
+{/* MODAL CREAR EMPLEADO */}
         {modalCrear && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-gradient-to-br from-slate-800 to-purple-900 rounded-2xl p-6 max-w-md w-full border border-white/20 shadow-2xl">
